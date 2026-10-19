@@ -3,7 +3,15 @@ import { persist } from 'zustand/middleware'
 import type { WalletState } from '@/types'
 import { getSorobanSDK } from '@/lib/soroban/sdk'
 
+/**
+ * Session TTL: 8 hours. Matches the value asserted in
+ * src/lib/store/__tests__/encrypted-storage.test.ts's TTL-expiry test.
+ */
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000
+
 interface WalletStore extends WalletState {
+  connectedAt: number | null
+  sessionTtlMs: number
   setWallet: (wallet: Partial<WalletState>) => void
   disconnect: () => void
   switchNetwork: (network: 'mainnet' | 'testnet' | 'futurenet' | 'standalone') => void
@@ -17,13 +25,21 @@ export const useWalletStore = create<WalletStore>()(
       publicKey: null,
       network: 'testnet',
       balance: '0',
-      setWallet: (wallet) => set((state) => ({ ...state, ...wallet })),
+      connectedAt: null,
+      sessionTtlMs: SESSION_TTL_MS,
+      setWallet: (wallet) =>
+        set((state) => ({
+          ...state,
+          ...wallet,
+          ...(wallet.isConnected ? { connectedAt: Date.now() } : {}),
+        })),
       disconnect: () =>
         set({
           isConnected: false,
           address: null,
           publicKey: null,
           balance: '0',
+          connectedAt: null,
         }),
       switchNetwork: (network) => set({ network }),
     }),
